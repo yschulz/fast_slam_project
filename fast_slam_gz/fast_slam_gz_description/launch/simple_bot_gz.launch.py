@@ -25,7 +25,9 @@ def generate_launch_description():
         executable='robot_state_publisher',
         name='robot_state_publisher',
         output='screen',
-        parameters=[{"robot_description": robot_desc}],
+        parameters=[{"robot_description": robot_desc,
+                     "use_sim_time": True
+                     }],
         arguments=['--ros-args', '--log-level', "info"]
     )
 
@@ -67,15 +69,6 @@ def generate_launch_description():
         output="screen",
     )
 
-    rviz = Node(
-        package="rviz2",
-        executable="rviz2",
-        arguments=[
-            "-d",
-            os.path.join(pkg_description, "rviz", "landmark_world.rviz"),
-        ],
-    )
-
     return LaunchDescription(
         [
             gz_sim_server,
@@ -83,6 +76,5 @@ def generate_launch_description():
             robot_state_publisher,
             bridge,
             spawner,
-            rviz
         ]    
     )

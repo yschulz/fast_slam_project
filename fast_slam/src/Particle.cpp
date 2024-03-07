@@ -62,7 +62,9 @@ void Particle::updateParticle(std::shared_ptr<MeasurementSet> measurement_set, S
 
 	StateVector state_propagated = motionModel(state_old, *state_dot, delta_time);
 
+
     associateData(state_propagated, measurement_set, measurement_set_existing, measurement_set_new, id_existing, id_new);
+
 
 
     StateMatrix Fs, Fw;
@@ -71,7 +73,7 @@ void Particle::updateParticle(std::shared_ptr<MeasurementSet> measurement_set, S
         Fw = calculateFw(state_old, *state_dot, delta_time);
     }
     else{
-        Fs = StateMatrix::Zero();
+        Fs = StateMatrix::Identity();
         Fw = StateMatrix::Identity();
     }
 
@@ -86,6 +88,11 @@ void Particle::updateParticle(std::shared_ptr<MeasurementSet> measurement_set, S
     handleExMeas(measurement_set_existing, state_proposal, id_existing);
 
     handleNewMeas(measurement_set_new, state_proposal, id_new);
+
+    std::cout << "state old:         " << state_old.transpose() << "\n";
+    std::cout << "state propagated:  " << state_propagated.transpose() << "\n";
+    std::cout << "state proposed:    " << state_proposal.transpose() << "\n";
+    std::cout << "number of existing measurements:  " << measurement_set_existing.getNumberOfMeasurements() << "  number of new: " << measurement_set_new.getNumberOfMeasurements() << "  number of landmarks: " << map_->getNLandmarks() << "\n\n";
 }
 
 void Particle::associateData(StateVector &state_propagated, std::shared_ptr<MeasurementSet> &measurement_set, MeasurementSet &measurement_set_existing, MeasurementSet &measurement_set_new, std::vector<int> &id_existing, std::vector<int> &id_new){
@@ -248,13 +255,11 @@ void Particle::handleNewMeas(MeasurementSet &measurement_set_new, StateVector &s
 
 StateVector Particle::drawSampleFromProposaleDistribution(StateVector &state_propagated, StateMatrix &Fs, StateMatrix &Fw, MeasurementSet &measurement_set_existing, std::vector<int> &id_existing){
 
-    StateVector state_proposal = state_propagated; // eq (3.29)
+    StateVector state_proposal = state_propagated;
 
     if(always_reset_particle_covariance_)
         particle_covariance_ = StateMatrix::Zero();
 
-
-    // sCovPrev should be reset if resampling has occured
     StateMatrix state_proposal_covariance =    Fs.transpose() * particle_covariance_ * Fs + 
                                                 Fw.transpose() * motion_model_covariance_ * Fw; 
 
@@ -291,9 +296,9 @@ StateVector Particle::drawSampleFromProposaleDistribution(StateVector &state_pro
                 Kk = state_proposal_covariance * state_jacobian.transpose() * 
                         (state_jacobian * state_proposal_covariance * state_jacobian.transpose() + Zki).inverse();
 
-                state_proposal_covariance = (state_jacobian.transpose() * Zki.inverse() * state_jacobian + state_proposal_covariance.inverse()).inverse();  // eq (3.30)
+                state_proposal_covariance = (state_jacobian.transpose() * Zki.inverse() * state_jacobian + state_proposal_covariance.inverse()).inverse();
                 state_proposal = state_proposal + state_proposal_covariance * state_jacobian.transpose() * Zki.inverse() * 
-                                (current_measurement->getMeasurement() - measurement_calculated); // eq (3.31)
+                                (current_measurement->getMeasurement() - measurement_calculated); 
             }
 
             if(force_covariance_symmetry_){
@@ -402,25 +407,20 @@ StateVector Particle::drawSampleRandomPose(StateVector &state_proposal, StateMat
 
 // Ts == sample time
 StateVector Particle::motionModel(StateVector &state_old, StateVectorDerivative &state_dot, std::chrono::nanoseconds delta_time) {
-    // s(k) = f(s(k-1),u(k))
     StateVector state_propagated(state_old);
 
     double theta = state_old(2);
     double dt_in_s = std::chrono::duration<double>(delta_time).count();
 
-    // std::cout << dt_in_s << "\n";
 
     if (dt_in_s > 3) {
         cout << "Motion model: Sample rate error" << endl;
         return state_propagated; // error with the sampling time, just return old pose estimate
     }
 
-    // Kinematic motion model where u=[x_dot, y_dot, yaw_difference] with x_dot and y_dot being in heading frame
-
-    state_propagated(0) +=  dt_in_s * cos(theta) * state_dot(0);
-    state_propagated(1) +=  dt_in_s * sin(theta) * state_dot(1);
-    state_propagated(2) +=  dt_in_s * state_dot(2); // add yaw difference
-
+    state_propagated(0) +=  state_dot(0);
+    state_propagated(1) +=  state_dot(1);
+    state_propagated(2) +=  state_dot(2);
 
     return state_propagated;
 }
@@ -430,8 +430,10 @@ StateMatrix Particle::calculateFs(StateVector &state_old, StateVectorDerivative 
     StateMatrix Fs = StateMatrix::Identity();
     double dt_in_s = std::chrono::duration<double>(delta_time).count();
 
-    Fs(0,2) = dt_in_s * -sin((state_old)(2)) * state_dot(0);
-    Fs(1,2) = dt_in_s * cos((state_old)(2)) * state_dot(1);
+    // Fs(0,2) = dt_in_s * -sin((state_old)(2)) * state_dot(0);
+    // Fs(1,2) = dt_in_s * cos((state_old)(2)) * state_dot(1);
+    Fs(0,2) = -sin((state_old)(2)) * state_dot(0);
+    Fs(1,2) = cos((state_old)(2)) * state_dot(1);
     return Fs;
 }
 
@@ -440,9 +442,12 @@ StateMatrix Particle::calculateFw(StateVector &state_old, StateVectorDerivative 
     StateMatrix Fw = StateMatrix::Zero();
     double dt_in_s = std::chrono::duration<double>(delta_time).count();
 
-    Fw(0,0) = dt_in_s * cos(state_old(2));
-    Fw(1,1) = dt_in_s * sin(state_old(2));
-    Fw(2,2) = dt_in_s;
+    // Fw(0,0) = dt_in_s * cos(state_old(2));
+    // Fw(1,1) = dt_in_s * sin(state_old(2));
+    // Fw(2,2) = dt_in_s;
+    Fw(0,0) =  cos(state_old(2));
+    Fw(1,1) =  sin(state_old(2));
+    Fw(2,2) =  1;
     return Fw;
 }
 
@@ -480,8 +485,11 @@ void Particle::calculateImportanceWeight(MeasurementSet &measurment_set_existing
     weight_ = wi;
 }
 
-StateMatrix Particle::motion_model_covariance_ = 0.001*StateMatrix::Identity(); // static variable - has to be declared outside class!
-
+StateMatrix Particle::motion_model_covariance_ = 0.00001*StateMatrix::Identity(); // static variable - has to be declared outside class!
+// StateMatrix Particle::motion_model_covariance_ = (StateMatrix() << 0.005, 0.0, 0.0, 
+//                                                                     0.0, 0.05, 0.0, 
+//                                                                     0.0, 0.0, 0.0005).finished(); // static variable - has to be declared outside class!
+// (Eigen::Matrix4d() << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16).finished();
 boost::mt19937 Particle::rng; // Creating a new random number generator every time could be optimized
 //rng.seed(static_cast<unsigned int>(time(0)));
 

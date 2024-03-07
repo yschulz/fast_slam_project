@@ -186,8 +186,8 @@
         <wheel_radius>0.05</wheel_radius> 
         <max_wheel_torque>2000</max_wheel_torque>
         <max_wheel_acceleration>100.0</max_wheel_acceleration>
-        <frame_id>diff/odom</frame_id>
-        <tf_topic>diff_tf_temp_off</tf_topic>
+        <frame_id>odom</frame_id>
+        <tf_topic>gz_odom</tf_topic>
         <child_frame_id>base_footprint</child_frame_id>
     </plugin>
   </gazebo>

@@ -57,7 +57,7 @@ private:
     bool loop_is_closed_;
 
     bool slow_init_ = false;
-    bool use_motion_model_jacobian_ = true;
+    bool use_motion_model_jacobian_ = false;
     bool always_reset_particle_covariance_ = true;
     bool use_numerical_stabilized_kalman_filters_ = true;
     bool force_covariance_symmetry_ = true;
