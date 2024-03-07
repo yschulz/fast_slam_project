@@ -91,9 +91,7 @@ Eigen::MatrixXd LandmarkXYMeasurement::calculateHl(StateVector pose, Eigen::Vect
     return Hl;
 }
 
-Eigen::MatrixXd LandmarkXYMeasurement::measurement_covariance_ = 0.05*Eigen::Matrix2d::Identity(); // static variable - has to be declared outside class!
-
-
+Eigen::MatrixXd LandmarkXYMeasurement::measurement_covariance_ = 0.0005*Eigen::Matrix2d::Identity(); // static variable - has to be declared outside class!
 
 
 

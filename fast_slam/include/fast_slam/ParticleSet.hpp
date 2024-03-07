@@ -22,6 +22,7 @@ class ParticleSet{
         void updateParticleSet(std::shared_ptr<MeasurementSet> measurement_set, StateVectorDerivative state_dot, std::chrono::nanoseconds delta_time);
 
         inline StateVector getLatestPoseEstimate() const {return state_mean_->getPose();}
+        inline StateMatrix getLatestCovarianceEstimate() const {return state_covariance_;}
 
         std::vector<StateVector> getAllParticlePoseEstimates() const;
         std::pair<StateVector, std::vector<std::shared_ptr<Landmark>>> getBestParticle();

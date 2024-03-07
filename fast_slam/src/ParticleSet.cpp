@@ -159,7 +159,6 @@ void ParticleSet::estimateDistribution(std::chrono::nanoseconds delta_time){
 
     state_covariance_estimate *= 1/(1-sum_of_weights_squared);
     state_covariance_ = state_covariance_estimate;
-    // sCov = 0.1* MatrixChiFastSLAMf::Identity();
     state_mean_->addPose(state_mean_estimate, iterations_since_start_, delta_time);
 }
 

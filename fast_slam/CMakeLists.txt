@@ -7,13 +7,10 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# find_package (Eigen3 REQUIRED)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(libnabo REQUIRED)
 find_package(OpenMP REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+
 
 set(srcs 
   "src/Measurement.cpp"
@@ -24,15 +21,7 @@ set(srcs
   "src/MapTree.cpp"
   "src/Helper.cpp"
 )
-# add_library(${PROJECT_NAME} 
-#     src/Measurement.cpp
-#     src/MeasurementSet.cpp
-#     src/Particle.cpp
-#     src/ParticleSet.cpp
-#     src/Path.cpp
-#     src/MapTree.cpp
-#     src/Helper.cpp
-# )
+
 add_library(${PROJECT_NAME} 
     ${srcs}
 )
@@ -77,9 +66,6 @@ install(TARGETS
 
 
 if(BUILD_TESTING)
-  # find_package(ament_lint_auto REQUIRED)
-  # ament_lint_auto_find_test_dependencies()
-
   include_directories(
     ${PROJECT_BINARY_DIR}/include
   )
@@ -111,7 +97,6 @@ if(BUILD_TESTING)
     "include"
   )
 
-  # ament_lint_auto_find_test_dependencies()
 endif()
 
 ament_package()
