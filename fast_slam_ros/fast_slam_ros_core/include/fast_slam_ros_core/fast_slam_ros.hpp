@@ -22,6 +22,7 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
+#include "fast_slam_ros_msgs/msg/point_array.hpp"
 
 using namespace std::chrono_literals;
 
@@ -39,7 +40,7 @@ private:
     void publishPath();
     void publishDistribution();
 
-    void landmarkCallback(const std::shared_ptr<geometry_msgs::msg::PoseArray> msg);
+    void landmarkCallback(const std::shared_ptr<fast_slam_ros_msgs::msg::PointArray> msg);
     void odomCallback(const std::shared_ptr<nav_msgs::msg::Odometry> msg);
 
     double getYaw(tf2::Quaternion q);
@@ -51,12 +52,12 @@ private:
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
-    rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr landmark_maesurement_sub_;
+    rclcpp::Subscription<fast_slam_ros_msgs::msg::PointArray>::SharedPtr landmark_maesurement_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr particle_pub_;
-    rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr landmark_pub_;
+    rclcpp::Publisher<fast_slam_ros_msgs::msg::PointArray>::SharedPtr landmark_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr distribution_pub_;
 
     rclcpp::TimerBase::SharedPtr timer_;
@@ -68,7 +69,7 @@ private:
     std::string odom_frame_;
     std::string robot_frame_;
 
-    geometry_msgs::msg::PoseArray latest_landmarks_;
+    fast_slam_ros_msgs::msg::PointArray latest_landmarks_;
     geometry_msgs::msg::TransformStamped last_transform_;
 
     geometry_msgs::msg::Pose last_pose_;

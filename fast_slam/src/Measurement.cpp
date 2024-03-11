@@ -162,4 +162,57 @@ Eigen::MatrixXd LandmarkXYYawMeasurement::calculateHl(StateVector pose, Eigen::V
 Eigen::MatrixXd LandmarkXYYawMeasurement::measurement_covariance_ = 0.05*Eigen::Matrix3d::Identity(); // static variable - has to be declared outside class!
 
 
+
+LandmarkLineMeasurement::LandmarkLineMeasurement(uint32_t identifier, Eigen::VectorXd line_measurement):
+    Measurement(){
+    c_id_ = identifier;
+    measurement_ = line_measurement;
+}
+
+Eigen::VectorXd LandmarkLineMeasurement::MeasurementModel(StateVector pose, Eigen::VectorXd landmark){
+    Eigen::Vector2d d;
+
+    d << landmark(0) + std::cos(landmark(1)) * pose(0) + std::sin(landmark(1)) * pose(1), 
+        landmark(1) - pose(2); 
+
+    return d;
+}
+
+Eigen::VectorXd LandmarkLineMeasurement::inverseMeasurementModel(StateVector pose){
+    Eigen::Vector2d d;
+
+    d  <<   measurement_(0) +  std::sin(measurement_(1) + pose(2)) * pose(0) - std::cos(measurement_(1) + pose(2)) * pose(1),
+            measurement_(1) + pose(2);
+
+    return d;
+}
+
+
+Eigen::MatrixXd LandmarkLineMeasurement::calculateHs(StateVector pose, Eigen::VectorXd landmark){
+    Eigen::MatrixXd Hs(2,2);
+
+    auto cos_p = std::cos(landmark(1));
+    auto sin_p = std::sin(landmark(1));
+
+    Hs <<   cos_p, -sin_p, 0,
+            0,  0, -1;
+
+    return Hs;
+}
+
+Eigen::MatrixXd LandmarkLineMeasurement::calculateHl(StateVector pose, Eigen::VectorXd landmark){
+    Eigen::MatrixXd Hl(2,2);
+
+    auto cos_p = std::cos(landmark(1));
+    auto sin_p = std::sin(landmark(1));
+
+    Hl <<   1,  -sin_p * pose(0) - cos_p * pose(1),
+            0, 1;
+
+    return Hl;
+}
+
+Eigen::MatrixXd LandmarkLineMeasurement::measurement_covariance_ = 0.05*Eigen::Matrix2d::Identity(); // static variable - has to be declared outside class!
+
+
 } //namespace fastslam

@@ -1,8 +1,8 @@
-#include "fast_slam_ros/fast_slam_ros.hpp"
+#include "fast_slam_ros_core/fast_slam_ros.hpp"
 
 FastSlamRos::FastSlamRos(): 
             rclcpp::Node("fast_slam_ros"),
-            p_set_(10, Eigen::Vector3d::Zero(), 0.01 * Eigen::Matrix3d::Identity())
+            p_set_(50, Eigen::Vector3d::Zero(), 0.01 * Eigen::Matrix3d::Identity())
             {
 
     std::cout << "setting up  \n";
@@ -15,11 +15,11 @@ FastSlamRos::FastSlamRos():
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
     particle_pub_ = rclcpp::Node::create_publisher<geometry_msgs::msg::PoseArray>("particles", 1);
-    landmark_pub_ = rclcpp::Node::create_publisher<geometry_msgs::msg::PoseArray>("map", 1);
+    landmark_pub_ = rclcpp::Node::create_publisher<fast_slam_ros_msgs::msg::PointArray>("map", 1);
     path_pub_ = rclcpp::Node::create_publisher<nav_msgs::msg::Path>("path", 1);
     distribution_pub_ = rclcpp::Node::create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("distribution", 1);
 
-    landmark_maesurement_sub_ = rclcpp::Node::create_subscription<geometry_msgs::msg::PoseArray>("/landmarks", 10, std::bind(&FastSlamRos::landmarkCallback, this, std::placeholders::_1));
+    landmark_maesurement_sub_ = rclcpp::Node::create_subscription<fast_slam_ros_msgs::msg::PointArray>("/landmark_points", 10, std::bind(&FastSlamRos::landmarkCallback, this, std::placeholders::_1));
     odom_sub_ = rclcpp::Node::create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&FastSlamRos::odomCallback, this, std::placeholders::_1));
 
     timer_ = rclcpp::Node::create_wall_timer(500ms, std::bind(&FastSlamRos::timerCallback, this));
@@ -118,17 +118,16 @@ void FastSlamRos::publishMap(){
     // get map of the best particle
     auto map_pair = p_set_.getBestParticle();
 
-    geometry_msgs::msg::PoseArray map;
+    fast_slam_ros_msgs::msg::PointArray map;
     map.header.stamp = rclcpp::Node::get_clock()->now();
     map.header.frame_id = "map";
 
     for(auto &landmark : map_pair.second){
-        geometry_msgs::msg::Pose pose_msg;
-        pose_msg.position.x = landmark->landmark_pose(0);
-        pose_msg.position.y = landmark->landmark_pose(1);
-        pose_msg.orientation.w = 1;
+        geometry_msgs::msg::Point pose_msg;
+        pose_msg.x = landmark->landmark_pose(0);
+        pose_msg.y = landmark->landmark_pose(1);
 
-        map.poses.push_back(pose_msg);
+        map.points.push_back(pose_msg);
     }
 
     landmark_pub_->publish(map);
@@ -203,13 +202,15 @@ void FastSlamRos::timerCallback(){
         std::shared_ptr<fastslam::MeasurementSet> m_set = std::make_shared<fastslam::MeasurementSet>();
 
         uint32_t i = 1;
-        for(auto &pose : latest_landmarks_.poses){
+        for(auto &point : latest_landmarks_.points){
             Eigen::Vector2d lm_input;
-            lm_input << pose.position.x, pose.position.y;
+            lm_input << point.x, point.y;
             std::shared_ptr<fastslam::Measurement> m_landmark = std::make_shared<fastslam::LandmarkXYMeasurement>(i, lm_input);
             m_set->addMeasurement(m_landmark);
             i++;
         }
+
+        std::cout << "number of ros measurements:  " << latest_landmarks_.points.size() << "  number of added measuremnts:  " << m_set->getNumberOfMeasurements() << "\n";
 
         p_set_.updateParticleSet(m_set, u, delta_time);
 
@@ -227,9 +228,9 @@ void FastSlamRos::timerCallback(){
     time_old_ = at_time;
 }
 
-void FastSlamRos::landmarkCallback(const std::shared_ptr<geometry_msgs::msg::PoseArray> msg) {
+void FastSlamRos::landmarkCallback(const std::shared_ptr<fast_slam_ros_msgs::msg::PointArray> msg) {
     latest_landmarks_.header = msg->header;
-    latest_landmarks_.poses = msg->poses;
+    latest_landmarks_.points = msg->points;
 }
 
 void FastSlamRos::odomCallback(const std::shared_ptr<nav_msgs::msg::Odometry> msg) {

@@ -1,5 +1,5 @@
-#ifndef GZ_FAKE_LANDMARKS_HPP
-#define GZ_FAKE_LANDMARKS_HPP
+#ifndef GZ_FAKE_LANDMARK_POINTS_HPP
+#define GZ_FAKE_LANDMARK_POINTS_HPP
 
 #include <gz/plugin/Register.hh>
 #include <gz/common/Profiler.hh>
@@ -10,13 +10,14 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_array.hpp>
+#include "fast_slam_ros_msgs/msg/point_array.hpp"
 
-class FakeLandmarksPrivate;
+class FakeLandmarkPointsPrivate;
 
-class FakeLandmarks : public gz::sim::System, public gz::sim::ISystemConfigure, public gz::sim::ISystemPostUpdate{
+class FakeLandmarkPoints : public gz::sim::System, public gz::sim::ISystemConfigure, public gz::sim::ISystemPostUpdate{
 public:
-    FakeLandmarks();
-    ~FakeLandmarks() override = default;
+    FakeLandmarkPoints();
+    ~FakeLandmarkPoints() override = default;
 
     void Configure(const gz::sim::Entity &_entity, const std::shared_ptr<const sdf::Element> &_sdf, gz::sim::EntityComponentManager &_ecm,
                    gz::sim::EventManager &_event_mgr) override;
@@ -24,7 +25,7 @@ public:
     void PostUpdate(const gz::sim::UpdateInfo &_info, const gz::sim::EntityComponentManager &_ecm) override;
 
 private:
-    std::shared_ptr<FakeLandmarksPrivate> data_ptr;
+    std::shared_ptr<FakeLandmarkPointsPrivate> data_ptr;
 };
 
 #endif

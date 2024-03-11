@@ -193,11 +193,29 @@
   </gazebo>
 
   <gazebo>
-    <plugin name="FakeLandmarks" filename="libfake_landmarks.so">
-      <landmark_topic>landmarks</landmark_topic> 
+    <plugin name="FakeLandmarkPoints" filename="libfake_landmark_points.so">
+      <landmark_topic>landmark_points</landmark_topic> 
       <ros_frame>base_footprint</ros_frame>
-      <threshold>10</threshold>
+      <threshold>2.5</threshold>
       <landmark_identifier>pillar</landmark_identifier>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="FakeLandmarkPoses" filename="libfake_landmark_poses.so">
+      <landmark_topic>landmark_poses</landmark_topic> 
+      <ros_frame>base_footprint</ros_frame>
+      <threshold>5</threshold>
+      <landmark_identifier>cube</landmark_identifier>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="FakeLandmarkLines" filename="libfake_landmark_lines.so">
+      <landmark_topic>landmark_lines</landmark_topic> 
+      <ros_frame>base_footprint</ros_frame>
+      <threshold>5</threshold>
+      <landmark_identifier>line</landmark_identifier>
     </plugin>
   </gazebo>
 

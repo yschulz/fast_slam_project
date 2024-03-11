@@ -1,11 +1,12 @@
-#include "fast_slam_gz_plugins/fake_landmarks.hpp"
+#include "fast_slam_gz_plugins/fake_landmark_poses.hpp"
 
 #include <sstream>
 #include <geometry_msgs/msg/pose.hpp>
+#include <tf2/LinearMath/Quaternion.h>
 
-GZ_ADD_PLUGIN(FakeLandmarks, gz::sim::System, FakeLandmarks::ISystemConfigure, FakeLandmarks::ISystemPostUpdate)
+GZ_ADD_PLUGIN(FakeLandmarkPoses, gz::sim::System, FakeLandmarkPoses::ISystemConfigure, FakeLandmarkPoses::ISystemPostUpdate)
 
-class FakeLandmarksPrivate{
+class FakeLandmarkPosesPrivate{
 public:
     gz::sim::Model model{gz::sim::kNullEntity};
 
@@ -22,7 +23,7 @@ public:
     void getLandmarkMeasurements(const gz::sim::UpdateInfo &_info, const gz::sim::EntityComponentManager &_ecm);
 };
 
-void FakeLandmarksPrivate::getLandmarkMeasurements(const gz::sim::UpdateInfo &_info, const gz::sim::EntityComponentManager &_ecm){
+void FakeLandmarkPosesPrivate::getLandmarkMeasurements(const gz::sim::UpdateInfo &_info, const gz::sim::EntityComponentManager &_ecm){
     gz::math::Pose3d gt_pose = gz::sim::worldPose(model.Entity(), _ecm);
 
     geometry_msgs::msg::PoseArray msg;
@@ -32,8 +33,6 @@ void FakeLandmarksPrivate::getLandmarkMeasurements(const gz::sim::UpdateInfo &_i
 
     for(const auto &landmark_pose :  all_landmark_poses){
         geometry_msgs::msg::Pose pose;
-        pose.orientation.w = 1;
-
 
         double dx = landmark_pose.Pos().X() - gt_pose.Pos().X();
         double dy = landmark_pose.Pos().Y() - gt_pose.Pos().Y();
@@ -42,8 +41,13 @@ void FakeLandmarksPrivate::getLandmarkMeasurements(const gz::sim::UpdateInfo &_i
 
         if(distance < threshold){
             double yaw = gt_pose.Rot().Yaw();
+            auto rot_diff = gt_pose.CoordRotationSub(landmark_pose.Rot());
             pose.position.x = std::cos(yaw) * dx + std::sin(yaw) * dy;
             pose.position.y = -std::sin(yaw) * dx + std::cos(yaw) * dy;
+
+            pose.orientation.z = rot_diff.Z();
+            pose.orientation.w = rot_diff.W();
+
             msg.poses.push_back(pose);
         }
     }
@@ -51,12 +55,12 @@ void FakeLandmarksPrivate::getLandmarkMeasurements(const gz::sim::UpdateInfo &_i
     ros_landmark_pub->publish(msg);
 }
 
-FakeLandmarks::FakeLandmarks(): data_ptr(std::make_unique<FakeLandmarksPrivate>()){}
+FakeLandmarkPoses::FakeLandmarkPoses(): data_ptr(std::make_unique<FakeLandmarkPosesPrivate>()){}
 
-void FakeLandmarks::Configure(const gz::sim::Entity &_entity, const std::shared_ptr<const sdf::Element> &_sdf, gz::sim::EntityComponentManager &_ecm,
+void FakeLandmarkPoses::Configure(const gz::sim::Entity &_entity, const std::shared_ptr<const sdf::Element> &_sdf, gz::sim::EntityComponentManager &_ecm,
                    gz::sim::EventManager &/*_event_mgr*/){
 
-    GZ_PROFILE("FakeLandmarks::Configure");
+    GZ_PROFILE("FakeLandmarkPoses::Configure");
 
     data_ptr->model = gz::sim::Model(_entity);
 
@@ -95,35 +99,33 @@ void FakeLandmarks::Configure(const gz::sim::Entity &_entity, const std::shared_
         landmark_identifier = _sdf->Get<std::string>("landmark_identifier");
     }
 
-    // get first landmark
-    size_t first_landmark = 0;
-    for(size_t i=0; i<10000; i++){
+
+    bool found_first_landmark = false;
+    for(size_t i=0; i< std::numeric_limits<size_t>::max(); i++){
         std::stringstream ss;
         ss << landmark_identifier << "_" << i << "_link";
-        if(_ecm.EntityByComponents(gz::sim::components::Name(ss.str()), gz::sim::components::Link())){
-            first_landmark = i;
-            break;
-        }
-    }
 
-    gz::sim::Entity landmark_entity = 1;
-    while(landmark_entity){
-        std::stringstream ss;
-        ss << landmark_identifier << "_" << first_landmark << "_link";
-        landmark_entity = _ecm.EntityByComponents(gz::sim::components::Name(ss.str()), gz::sim::components::Link());
+        auto landmark_entity = _ecm.EntityByComponents(gz::sim::components::Name(ss.str()));
+        if(!landmark_entity && !found_first_landmark)
+            continue;
+        else if(!landmark_entity && found_first_landmark)
+            break;
+        else if(landmark_entity && !found_first_landmark)
+            found_first_landmark = true;
+
         gz::math::Pose3d landmark_pose = gz::sim::worldPose(landmark_entity, _ecm);
         data_ptr->all_landmark_poses.push_back(landmark_pose);
-        first_landmark++;
     }
 
+    std::stringstream node_name_stream;
+    node_name_stream << "gz_fake_landmark_" << landmark_identifier;
 
-
-    data_ptr->ros_node_ptr = rclcpp::Node::make_shared("gz_fake_landmarks");
+    data_ptr->ros_node_ptr = rclcpp::Node::make_shared(node_name_stream.str());
     data_ptr->ros_landmark_pub = data_ptr->ros_node_ptr->create_publisher<geometry_msgs::msg::PoseArray>(pose_array_topic, 1);
 
 }
 
-void FakeLandmarks::PostUpdate(const gz::sim::UpdateInfo &_info, const gz::sim::EntityComponentManager &_ecm){
-    GZ_PROFILE("FakeLandmarks::PostUpdate");
+void FakeLandmarkPoses::PostUpdate(const gz::sim::UpdateInfo &_info, const gz::sim::EntityComponentManager &_ecm){
+    GZ_PROFILE("FakeLandmarkPoses::PostUpdate");
     data_ptr->getLandmarkMeasurements(_info, _ecm);
 }

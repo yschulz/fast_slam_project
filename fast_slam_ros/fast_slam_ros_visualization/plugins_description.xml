@@ -1,0 +1,25 @@
+<library path="fast_slam_ros_visualization">
+
+  <!-- Displays plugins -->
+  <class
+    name="fast_slam_ros_visualization/LineLandmark"
+    type="fast_slam_ros_visualization::LineLandmarkDisplay"
+    base_class_type="rviz_common::Display"
+  >
+    <description>
+      Displays data from a fast_slam_ros_msgs::msg::LineLandmarkArray message as multiple lines.
+    </description>
+    <message_type>fast_slam_ros_msgs/msg/LineLandmarkArray</message_type>
+  </class>
+
+  <class
+    name="fast_slam_ros_visualization/PointArray"
+    type="fast_slam_ros_visualization::PointArrayDisplay"
+    base_class_type="rviz_common::Display"
+  >
+    <description>
+      Displays data from a fast_slam_ros_msgs::msg::PointArray message as multiple lines.
+    </description>
+    <message_type>fast_slam_ros_msgs/msg/PointArray</message_type>
+  </class>
+</library>
