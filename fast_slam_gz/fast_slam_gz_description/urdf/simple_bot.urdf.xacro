@@ -211,6 +211,15 @@
   </gazebo>
 
   <gazebo>
+    <plugin name="FakeLandmarkLines" filename="libfake_landmark_lines.so">
+      <landmark_topic>landmark_lines</landmark_topic> 
+      <ros_frame>base_footprint</ros_frame>
+      <threshold>5</threshold>
+      <landmark_identifier>line</landmark_identifier>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
     <plugin filename="gz-sim-joint-state-publisher-system"
       name="gz::sim::systems::JointStatePublisher">
       <topic>/gz/joint_states</topic>

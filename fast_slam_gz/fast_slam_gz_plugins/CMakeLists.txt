@@ -55,6 +55,27 @@ fake_landmark_poses
     RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
+add_library(fake_landmark_lines SHARED src/fake_landmark_lines.cpp)
+target_include_directories(fake_landmark_lines PRIVATE 
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>"
+)
+
+target_link_libraries(fake_landmark_lines PRIVATE 
+    gz-sim8::gz-sim8 
+    gz-plugin2::register 
+    ${rclcpp_TARGETS}
+    ${geometry_msgs_TARGETS}
+    ${fast_slam_ros_msgs_TARGETS}
+)
+
+install(TARGETS
+fake_landmark_lines
+    ARCHIVE DESTINATION lib/${PROJECT_NAME}
+    LIBRARY DESTINATION lib/${PROJECT_NAME}
+    RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/hooks/${PROJECT_NAME}.dsv.in")
 ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/hooks/${PROJECT_NAME}.sh.in")
 

@@ -39,7 +39,6 @@ void FlatArrow::updateManualObject(Ogre::ColourValue color, float alpha, float l
     clear();
 
     color.a = alpha;
-    setManualObjectMaterial();
     rviz_rendering::MaterialManager::enableAlphaBlending(material_, alpha);
 
     manual_object_->begin(material_->getName(), Ogre::RenderOperation::OT_LINE_LIST, "rviz_rendering");
@@ -52,10 +51,8 @@ void FlatArrow::clear(){
     }
 }
 
-void FlatArrow::setManualObjectMaterial(){
-    static int material_count = 0;
-    std::string material_name = "FlatArrowMaterial" + std::to_string(material_count++);
-    material_ = rviz_rendering::MaterialManager::createMaterialWithNoLighting(material_name);
+void FlatArrow::setManualObjectMaterial(Ogre::MaterialPtr material){
+    material_ = material;
 }
 
 void FlatArrow::setManualObjectVertices(const Ogre::ColourValue & color, float length, const OgrePose & pose){
@@ -107,7 +104,6 @@ void Line::updateManualObject(Ogre::ColourValue color, float alpha, float length
     clear();
 
     color.a = alpha;
-    setManualObjectMaterial();
     rviz_rendering::MaterialManager::enableAlphaBlending(material_, alpha);
 
     manual_object_->begin(material_->getName(), Ogre::RenderOperation::OT_LINE_LIST, "rviz_rendering");
@@ -121,19 +117,18 @@ void Line::clear(){
     }
 }
 
-void Line::setManualObjectMaterial(){
-    static int material_count = 0;
-    std::string material_name = "LineMaterial" + std::to_string(material_count++);
-    material_ = rviz_rendering::MaterialManager::createMaterialWithNoLighting(material_name);
+void Line::setManualObjectMaterial(Ogre::MaterialPtr material){
+    material_ = material;
 }
 
 void Line::setManualObjectVertices(const Ogre::ColourValue & color, float length, const OgrePose & pose){
-    manual_object_->estimateVertexCount(3);
+    manual_object_->estimateVertexCount(4);
 
-    Ogre::Vector3 vertices[3];
+    Ogre::Vector3 vertices[4];
     vertices[0] = pose.orientation * Ogre::Vector3(pose.distance, 0, 0);  // tip of arrow
     vertices[1] = pose.orientation * Ogre::Vector3(pose.distance, length, 0);
-    vertices[2] = pose.orientation * Ogre::Vector3(pose.distance, -length, 0);
+    vertices[2] = vertices[0];
+    vertices[3] = pose.orientation * Ogre::Vector3(pose.distance, -length, 0);
 
     for (const auto & vertex : vertices) {
         manual_object_->position(vertex);
@@ -167,6 +162,10 @@ LineLandmarkDisplay::LineLandmarkDisplay(){
 
     arrow_alpha_property_->setMin(0);
     arrow_alpha_property_->setMax(1);
+
+    static int material_count = 0;
+    std::string material_name = "Material" + std::to_string(material_count++);
+    material_ = rviz_rendering::MaterialManager::createMaterialWithNoLighting(material_name);
 }
 
 LineLandmarkDisplay::~LineLandmarkDisplay() = default;
@@ -259,12 +258,14 @@ void LineLandmarkDisplay::updateArrows2d(){
     }
 
     for(size_t i = 0; i < poses_.size(); ++i){
+        arrows_[i]->setManualObjectMaterial(material_);
         arrows_[i]->updateManualObject(
             arrow_color_property_->getOgreColor(),
             arrow_alpha_property_->getFloat(),
-            line_length_property_->getFloat(),
+            arrow_tip_length_property_->getFloat(),
             poses_[i]);
 
+        lines_[i]->setManualObjectMaterial(material_);
         lines_[i]->updateManualObject(
             arrow_color_property_->getOgreColor(),
             arrow_alpha_property_->getFloat(),

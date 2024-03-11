@@ -46,9 +46,9 @@ public:
     void createAndAttachManualObject(Ogre::SceneNode * scene_node);
     void updateManualObject(Ogre::ColourValue color, float alpha, float length, const OgrePose & pose);
     void clear();
+    void setManualObjectMaterial(Ogre::MaterialPtr material);
 
 private:
-    void setManualObjectMaterial();
     void setManualObjectVertices(const Ogre::ColourValue & color, float length, const OgrePose & pose);
 
     Ogre::SceneManager * scene_manager_;
@@ -64,9 +64,10 @@ public:
     void createAndAttachManualObject(Ogre::SceneNode * scene_node);
     void updateManualObject(Ogre::ColourValue color, float alpha, float length, const OgrePose & pose);
     void clear();
+    void setManualObjectMaterial(Ogre::MaterialPtr material);
 
 private:
-    void setManualObjectMaterial();
+    
     void setManualObjectVertices(const Ogre::ColourValue & color, float length, const OgrePose & pose);
 
     Ogre::SceneManager * scene_manager_;
@@ -102,6 +103,8 @@ private:
 
     Ogre::SceneNode * arrow_node_;
     Ogre::SceneNode * axes_node_;
+
+    Ogre::MaterialPtr material_;
 
     rviz_common::properties::ColorProperty * arrow_color_property_;
     rviz_common::properties::FloatProperty * arrow_alpha_property_;
