@@ -62,7 +62,7 @@ void ParticleSet::updateParticleSet(std::shared_ptr<MeasurementSet> measurement_
     std::cout << "Kishs effective sample size: " << kishs_effective_sample_size << std::endl;
     
     // resample only if Kishs effective sample size drops below threshold
-    if(kishs_effective_sample_size < 0.8 * n_particles_)
+    if(kishs_effective_sample_size < 0.3 * n_particles_)
         resample();
     
 }
@@ -157,7 +157,7 @@ void ParticleSet::estimateDistribution(std::chrono::nanoseconds delta_time){
         sum_of_weights_squared += normalized_weight * normalized_weight;
     }
 
-    state_covariance_estimate *= 1/(1-sum_of_weights_squared);
+    // state_covariance_estimate *= 1/(1-sum_of_weights_squared);
     state_covariance_ = state_covariance_estimate;
     state_mean_->addPose(state_mean_estimate, iterations_since_start_, delta_time);
 }

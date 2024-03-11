@@ -89,10 +89,26 @@ void Particle::updateParticle(std::shared_ptr<MeasurementSet> measurement_set, S
 
     handleNewMeas(measurement_set_new, state_proposal, id_new);
 
+    
+
+    // we are done estimating our pose and add it to the path!
+    
+
+    // handleExMeas(measurement_set_existing, state_propagated, id_existing);
+
+    // handleNewMeas(measurement_set_new, state_propagated, id_new);
+
+    // calculateImportanceWeight(measurement_set_existing, state_propagated, Fw, id_existing);
+
+    // state_proposal = drawSampleFromProposaleDistribution(state_propagated, Fs, Fw, measurement_set_existing, id_existing);
+
+    // path_->addPose(state_proposal, current_iteration_, delta_time); 
+
     std::cout << "state old:         " << state_old.transpose() << "\n";
     std::cout << "state propagated:  " << state_propagated.transpose() << "\n";
     std::cout << "state proposed:    " << state_proposal.transpose() << "\n";
-    std::cout << "number of existing measurements:  " << measurement_set_existing.getNumberOfMeasurements() << "  number of new: " << measurement_set_new.getNumberOfMeasurements() << "  number of landmarks: " << map_->getNLandmarks() << "\n\n";
+    std::cout << "number of existing measurements:  " << measurement_set_existing.getNumberOfMeasurements() << "  number of new: " << measurement_set_new.getNumberOfMeasurements() << "  number of landmarks: " << map_->getNLandmarks() << "\n";
+    std::cout << "Particle weight:  " << getWeight() << "\n\n";
 }
 
 void Particle::associateData(StateVector &state_propagated, std::shared_ptr<MeasurementSet> &measurement_set, MeasurementSet &measurement_set_existing, MeasurementSet &measurement_set_new, std::vector<int> &id_existing, std::vector<int> &id_new){
@@ -472,23 +488,26 @@ void Particle::calculateImportanceWeight(MeasurementSet &measurment_set_existing
         Eigen::VectorXd measurement_difference = current_measurement->getMeasurement() - measurement_calculated;
 
 
-        weight_covariance = state_jacobian * Fw * motion_model_covariance_ * Fw.transpose() * state_jacobian.transpose() + 
-                        landmark_jacobian * landmark_old->landmark_covariance * landmark_jacobian.transpose() + current_measurement->getzCov();
+        // weight_covariance = state_jacobian * Fw * motion_model_covariance_ * Fw.transpose() * state_jacobian.transpose() + 
+        //                 landmark_jacobian * landmark_old->landmark_covariance * landmark_jacobian.transpose() + current_measurement->getzCov();
+        weight_covariance = landmark_jacobian * landmark_old->landmark_covariance * landmark_jacobian.transpose() + current_measurement->getzCov();
 
         double exponent = measurement_difference.transpose() * weight_covariance.inverse() * measurement_difference;
         double determinant = (2 * M_PI * weight_covariance).determinant();
 
         wi *= exp(-0.5 * exponent) / (sqrt(determinant));
 
+        // std::cout << "See here state component:  \n" << state_jacobian * Fw * motion_model_covariance_ * Fw.transpose() * state_jacobian.transpose() << "\n And see here the measurement component: \n" << landmark_jacobian * landmark_old->landmark_covariance * landmark_jacobian.transpose() + current_measurement->getzCov() << "\n";
+        // std::cout << "partial weight:  " << exp(-0.5 * exponent) / (sqrt(determinant)) << "\n";
     }
 
     weight_ = wi;
 }
 
-StateMatrix Particle::motion_model_covariance_ = 0.00001*StateMatrix::Identity(); // static variable - has to be declared outside class!
-// StateMatrix Particle::motion_model_covariance_ = (StateMatrix() << 0.005, 0.0, 0.0, 
-//                                                                     0.0, 0.05, 0.0, 
-//                                                                     0.0, 0.0, 0.0005).finished(); // static variable - has to be declared outside class!
+// StateMatrix Particle::motion_model_covariance_ = 0.000001*StateMatrix::Identity(); // static variable - has to be declared outside class!
+StateMatrix Particle::motion_model_covariance_ = (StateMatrix() << 0.001, 0.0, 0.0, 
+                                                                    0.0, 0.001, 0.0, 
+                                                                    0.0, 0.0, 0.000001).finished(); // static variable - has to be declared outside class!
 // (Eigen::Matrix4d() << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16).finished();
 boost::mt19937 Particle::rng; // Creating a new random number generator every time could be optimized
 //rng.seed(static_cast<unsigned int>(time(0)));

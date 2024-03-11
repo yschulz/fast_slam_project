@@ -36,7 +36,7 @@ def generate_launch_description():
             os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")
         ),
         launch_arguments={
-            "gz_args": " -v4 -s -r " + os.path.join(pkg_description, 'world', "landmark.world"),
+            "gz_args": " -v4 -s -r " + os.path.join(pkg_description, 'world', "landmark_ambiguous_x_w_poses.world"),
             "gz_version": "8"
         }.items(),
     )
@@ -46,7 +46,7 @@ def generate_launch_description():
             os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")
         ),
         launch_arguments={
-            "gz_args": f"-v4 -g " + os.path.join(pkg_description, 'world', "landmark.world"),
+            "gz_args": f"-v4 -g " + os.path.join(pkg_description, 'world', "landmark_ambiguous_x_w_poses.world"),
             "gz_version": "8"
         }.items(),
     )

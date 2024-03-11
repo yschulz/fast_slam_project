@@ -1,4 +1,4 @@
-#include "fast_slam_ros/fast_slam_ros.hpp"
+#include "fast_slam_ros_core/fast_slam_ros.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 

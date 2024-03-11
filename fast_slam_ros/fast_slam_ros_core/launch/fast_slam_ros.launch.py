@@ -9,7 +9,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 def generate_launch_description():
 
     pkg_fast_slam_gz = get_package_share_directory("fast_slam_gz_description")
-    pkg_fast_slam_ros = get_package_share_directory("fast_slam_ros")
+    pkg_fast_slam_ros = get_package_share_directory("fast_slam_ros_core")
 
     # Launch bot description
     simulation = IncludeLaunchDescription(
@@ -19,8 +19,8 @@ def generate_launch_description():
     )
 
     fast_slam_node = Node(
-        package='fast_slam_ros', 
-        executable='fast_slam_ros', 
+        package='fast_slam_ros_core', 
+        executable='fast_slam_ros_core', 
         output='screen', 
         parameters=[{'use_sim_time': True}]
     )
