@@ -76,6 +76,20 @@ class LandmarkXYYawMeasurement : public Measurement{
 
 };
 
+class LandmarkLineMeasurement : public Measurement{
+	public:
+
+        LandmarkLineMeasurement(uint32_t identifier, Eigen::VectorXd landmark_measurement);
+        Eigen::MatrixXd calculateHs(StateVector pose, Eigen::VectorXd landmark) override;
+        Eigen::MatrixXd calculateHl(StateVector pose, Eigen::VectorXd landmark) override;
+        Eigen::VectorXd inverseMeasurementModel(StateVector pose) override;
+        Eigen::VectorXd MeasurementModel(StateVector pose, Eigen::VectorXd landmark) override;
+        inline Eigen::MatrixXd getzCov() const override {return measurement_covariance_;}
+	private:
+        static Eigen::MatrixXd measurement_covariance_; 	/* measurement covariance - can take different sizes! static such that only one copy is saved in memory - also why it is placed in the subclass*/
+
+};
+
 } //namespace fastslam
 
 
