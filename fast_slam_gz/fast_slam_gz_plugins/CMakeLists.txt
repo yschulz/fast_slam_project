@@ -11,6 +11,7 @@ find_package(gz-sim8 REQUIRED)
 find_package(gz-plugin2 REQUIRED COMPONENTS register)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(fast_slam_ros_msgs REQUIRED)
 
 
@@ -26,6 +27,7 @@ target_link_libraries(fake_landmark_points PRIVATE
     ${rclcpp_TARGETS}
     ${geometry_msgs_TARGETS}
     ${fast_slam_ros_msgs_TARGETS}
+    ${tf2_TARGETS}
 )
 
 install(TARGETS
@@ -46,6 +48,7 @@ target_link_libraries(fake_landmark_poses PRIVATE
     gz-plugin2::register 
     ${rclcpp_TARGETS}
     ${geometry_msgs_TARGETS}
+    ${tf2_TARGETS}
 )
 
 install(TARGETS
@@ -67,6 +70,7 @@ target_link_libraries(fake_landmark_lines PRIVATE
     ${rclcpp_TARGETS}
     ${geometry_msgs_TARGETS}
     ${fast_slam_ros_msgs_TARGETS}
+    ${tf2_TARGETS}
 )
 
 install(TARGETS
