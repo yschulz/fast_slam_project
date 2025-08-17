@@ -104,7 +104,7 @@ void ParticleSet::resample(){
 
             random_index += 1;
             if (random_index >= n_particles_){
-                random_index = 1;
+                random_index = 0;
             }
             weight = particles_.at(random_index)->getWeight();
         }

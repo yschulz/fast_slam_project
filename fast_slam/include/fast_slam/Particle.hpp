@@ -46,9 +46,14 @@ private:
     StateMatrix calculateFw(StateVector &state_old, StateVectorDerivative &state_dot, std::chrono::nanoseconds &delta_time);
 
     void KFCholeskyUpdate(Eigen::VectorXd &x, Eigen::MatrixXd &P, Eigen::VectorXd &v, Eigen::MatrixXd &R, Eigen::MatrixXd &H);
+    void updateSpatialIndex() const;
 
     std::unique_ptr<Path> path_;
     std::unique_ptr<MapTree> map_;
+    
+    // Persistent spatial index for efficient data association
+    mutable std::unique_ptr<Nabo::NNSearchD> spatial_index_;
+    mutable bool spatial_index_dirty_;
 
     uint32_t current_iteration_;
     double weight_;

@@ -10,7 +10,9 @@ Particle::Particle(StateVector initial_state, StateMatrix initial_covariance, ui
         weight_(1),
         weight_distance_(0.0),
         loop_is_closed_(false), 
-        particle_covariance_(initial_covariance){
+        particle_covariance_(initial_covariance),
+        spatial_index_(nullptr),
+        spatial_index_dirty_(true){
 
     // make path and map
     path_ = std::make_unique<Path>(initial_state, iteration);
@@ -33,9 +35,38 @@ Particle::Particle(const Particle &particle_to_copy){
     add_landmarks_after_resampling_ = particle_to_copy.add_landmarks_after_resampling_;
 
     particle_covariance_ = particle_to_copy.particle_covariance_;
+    
+    // Spatial index will be rebuilt on demand - don't copy the index itself
+    spatial_index_ = nullptr;
+    spatial_index_dirty_ = true;
 }
 
 Particle::~Particle(){}
+
+void Particle::updateSpatialIndex() const {
+    if (!spatial_index_dirty_ && spatial_index_) {
+        return; // Index is already up to date
+    }
+    
+    if (map_->getNLandmarks() == 0) {
+        spatial_index_.reset();
+        spatial_index_dirty_ = false;
+        return;
+    }
+    
+    // Build landmark position matrix for spatial indexing
+    Eigen::MatrixXd landmark_positions(2, map_->getNLandmarks());
+    for(uint32_t i = 1; i <= map_->getNLandmarks(); i++){
+        auto landmark_ptr = map_->extractLandmarkNodePointer(i);
+        if (landmark_ptr != nullptr){
+            landmark_positions.col(i-1) = landmark_ptr->landmark_pose;
+        }
+    }
+    
+    // Create new spatial index - properly manages memory with smart pointer
+    spatial_index_.reset(Nabo::NNSearchD::createKDTreeLinearHeap(landmark_positions));
+    spatial_index_dirty_ = false;
+}
 
 std::vector<std::shared_ptr<Landmark>> Particle::getMap(){
     std::vector<std::shared_ptr<Landmark>> out;
@@ -159,13 +190,16 @@ void Particle::associateData(StateVector &state_propagated, std::shared_ptr<Meas
     Eigen::MatrixXi nn_indices(1, landmark_calculated.cols());
     Eigen::MatrixXd nn_distances(1, landmark_calculated.cols());
 
-    // run nearest neighbor search
-    Nabo::NNSearchD* nns = Nabo::NNSearchD::createKDTreeLinearHeap(map_landmark_matrix);
-
-    int n_nearest_neighbors = 1;
-    nns->knn(landmark_calculated, nn_indices, nn_distances, n_nearest_neighbors, 0, Nabo::NNSearchD::ALLOW_SELF_MATCH, 1.0);
-
-    delete nns;
+    // Use persistent spatial index for efficient nearest neighbor search
+    updateSpatialIndex();
+    
+    if (spatial_index_) {
+        int n_nearest_neighbors = 1;
+        spatial_index_->knn(landmark_calculated, nn_indices, nn_distances, n_nearest_neighbors, 0, Nabo::NNSearchD::ALLOW_SELF_MATCH, 1.0);
+    } else {
+        // No landmarks in map, all distances are infinity
+        nn_distances.setConstant(std::numeric_limits<double>::infinity());
+    }
 
     curr = measurement_set->getHeadPointer();
 
@@ -239,6 +273,7 @@ void Particle::handleExMeas(MeasurementSet &measurent_set_existing, StateVector 
         }
 
         map_->correctLandmark(landmark_update);
+        spatial_index_dirty_ = true; // Mark spatial index as needing update
     }
 }
 
@@ -265,6 +300,7 @@ void Particle::handleNewMeas(MeasurementSet &measurement_set_new, StateVector &s
             landmark->landmark_covariance = (landmark->landmark_covariance + (landmark->landmark_covariance).transpose()) * 0.5; 
 
         map_->insertLandmark(landmark);
+        spatial_index_dirty_ = true; // Mark spatial index as needing update
 
     }
 }
@@ -279,7 +315,7 @@ StateVector Particle::drawSampleFromProposaleDistribution(StateVector &state_pro
     StateMatrix state_proposal_covariance =    Fs.transpose() * particle_covariance_ * Fs + 
                                                 Fw.transpose() * motion_model_covariance_ * Fw; 
 
-    if (measurement_set_existing.getNumberOfMeasurements() != 0 && loop_is_closed_){
+    if (measurement_set_existing.getNumberOfMeasurements() != 0){
 
         for(size_t i = 1; i <= measurement_set_existing.getNumberOfMeasurements(); i++) {
 
@@ -428,15 +464,39 @@ StateVector Particle::motionModel(StateVector &state_old, StateVectorDerivative 
     double theta = state_old(2);
     double dt_in_s = std::chrono::duration<double>(delta_time).count();
 
-
     if (dt_in_s > 3) {
         cout << "Motion model: Sample rate error" << endl;
         return state_propagated; // error with the sampling time, just return old pose estimate
     }
 
-    state_propagated(0) +=  state_dot(0);
-    state_propagated(1) +=  state_dot(1);
-    state_propagated(2) +=  state_dot(2);
+    // Extract velocity components from state_dot
+    double vx = state_dot(0);
+    double vy = state_dot(1);
+    double omega = state_dot(2);
+
+    // Convert to body frame velocity
+    double v_forward = vx * cos(theta) + vy * sin(theta);
+    double v_lateral = -vx * sin(theta) + vy * cos(theta);
+
+    // Differential drive motion model with proper kinematics
+    if (abs(omega) < 1e-6) {
+        // Straight line motion
+        state_propagated(0) += v_forward * cos(theta) * dt_in_s;
+        state_propagated(1) += v_forward * sin(theta) * dt_in_s;
+        state_propagated(2) += omega * dt_in_s;
+    } else {
+        // Curved motion with instantaneous center of rotation
+        double radius = v_forward / omega;
+        double dtheta = omega * dt_in_s;
+        
+        state_propagated(0) += radius * (sin(theta + dtheta) - sin(theta));
+        state_propagated(1) += radius * (-cos(theta + dtheta) + cos(theta));
+        state_propagated(2) += dtheta;
+    }
+
+    // Normalize angle to [-pi, pi]
+    while (state_propagated(2) > M_PI) state_propagated(2) -= 2.0 * M_PI;
+    while (state_propagated(2) < -M_PI) state_propagated(2) += 2.0 * M_PI;
 
     return state_propagated;
 }
@@ -445,11 +505,28 @@ StateVector Particle::motionModel(StateVector &state_old, StateVectorDerivative 
 StateMatrix Particle::calculateFs(StateVector &state_old, StateVectorDerivative &state_dot, std::chrono::nanoseconds &delta_time){
     StateMatrix Fs = StateMatrix::Identity();
     double dt_in_s = std::chrono::duration<double>(delta_time).count();
-
-    // Fs(0,2) = dt_in_s * -sin((state_old)(2)) * state_dot(0);
-    // Fs(1,2) = dt_in_s * cos((state_old)(2)) * state_dot(1);
-    Fs(0,2) = -sin((state_old)(2)) * state_dot(0);
-    Fs(1,2) = cos((state_old)(2)) * state_dot(1);
+    
+    double theta = state_old(2);
+    double vx = state_dot(0);
+    double vy = state_dot(1);
+    double omega = state_dot(2);
+    
+    // Convert to body frame velocity
+    double v_forward = vx * cos(theta) + vy * sin(theta);
+    
+    if (abs(omega) < 1e-6) {
+        // Straight line motion Jacobian
+        Fs(0,2) = -v_forward * sin(theta) * dt_in_s;
+        Fs(1,2) = v_forward * cos(theta) * dt_in_s;
+    } else {
+        // Curved motion Jacobian
+        double radius = v_forward / omega;
+        double dtheta = omega * dt_in_s;
+        
+        Fs(0,2) = radius * (cos(theta + dtheta) - cos(theta));
+        Fs(1,2) = radius * (sin(theta + dtheta) - sin(theta));
+    }
+    
     return Fs;
 }
 
@@ -457,13 +534,34 @@ StateMatrix Particle::calculateFs(StateVector &state_old, StateVectorDerivative 
 StateMatrix Particle::calculateFw(StateVector &state_old, StateVectorDerivative &state_dot, std::chrono::nanoseconds &delta_time){
     StateMatrix Fw = StateMatrix::Zero();
     double dt_in_s = std::chrono::duration<double>(delta_time).count();
-
-    // Fw(0,0) = dt_in_s * cos(state_old(2));
-    // Fw(1,1) = dt_in_s * sin(state_old(2));
-    // Fw(2,2) = dt_in_s;
-    Fw(0,0) =  cos(state_old(2));
-    Fw(1,1) =  sin(state_old(2));
-    Fw(2,2) =  1;
+    
+    double theta = state_old(2);
+    double vx = state_dot(0);
+    double vy = state_dot(1);
+    double omega = state_dot(2);
+    
+    // Convert to body frame velocity
+    double v_forward = vx * cos(theta) + vy * sin(theta);
+    
+    if (abs(omega) < 1e-6) {
+        // Straight line motion Jacobian w.r.t control inputs
+        Fw(0,0) = cos(theta) * cos(theta) * dt_in_s;
+        Fw(0,1) = cos(theta) * sin(theta) * dt_in_s;
+        Fw(1,0) = sin(theta) * cos(theta) * dt_in_s;
+        Fw(1,1) = sin(theta) * sin(theta) * dt_in_s;
+        Fw(2,2) = dt_in_s;
+    } else {
+        // Curved motion Jacobian w.r.t control inputs
+        double radius = v_forward / omega;
+        double dtheta = omega * dt_in_s;
+        
+        Fw(0,0) = (cos(theta) / omega) * (sin(theta + dtheta) - sin(theta));
+        Fw(0,1) = (sin(theta) / omega) * (sin(theta + dtheta) - sin(theta));
+        Fw(1,0) = (cos(theta) / omega) * (-cos(theta + dtheta) + cos(theta));
+        Fw(1,1) = (sin(theta) / omega) * (-cos(theta + dtheta) + cos(theta));
+        Fw(2,2) = dt_in_s;
+    }
+    
     return Fw;
 }
 

@@ -34,7 +34,7 @@ void FastSlamRos::broadCastTransform(){
     bool success = false;
     while(!success){
         try{
-            transform_ro = tf_buffer_->lookupTransform(robot_frame_, odom_frame_, rclcpp::Time(0), rclcpp::Duration::from_seconds(5));
+            transform_ro = tf_buffer_->lookupTransform(odom_frame_, robot_frame_, rclcpp::Time(0), rclcpp::Duration::from_seconds(5));
             success = true;
         }
         catch(tf2::LookupException &ex){
@@ -42,15 +42,15 @@ void FastSlamRos::broadCastTransform(){
         }
     }
     
-    tf2::Transform odom_in_robot(tf2::Quaternion(0, 0, transform_ro.transform.rotation.z, transform_ro.transform.rotation.w),
-                                tf2::Vector3(transform_ro.transform.translation.x, transform_ro.transform.translation.y, 0));
+    tf2::Transform robot_in_odom(tf2::Quaternion(0, 0, transform_ro.transform.rotation.z, transform_ro.transform.rotation.w),
+                                 tf2::Vector3(transform_ro.transform.translation.x, transform_ro.transform.translation.y, 0));
 
     auto fast_slam_pose = p_set_.getLatestPoseEstimate();
     tf2::Quaternion pose_q;
     pose_q.setRPY(0, 0, fast_slam_pose(2));
 
     tf2::Transform robot_in_map(pose_q, tf2::Vector3(fast_slam_pose(0), fast_slam_pose(1), 0));
-    tf2::Transform odom_in_map = robot_in_map * odom_in_robot;
+    tf2::Transform odom_in_map = robot_in_map * robot_in_odom.inverse();
 
     geometry_msgs::msg::TransformStamped t_out;
     t_out.child_frame_id = odom_frame_;

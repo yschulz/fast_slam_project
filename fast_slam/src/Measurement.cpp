@@ -189,13 +189,13 @@ Eigen::VectorXd LandmarkLineMeasurement::inverseMeasurementModel(StateVector pos
 
 
 Eigen::MatrixXd LandmarkLineMeasurement::calculateHs(StateVector pose, Eigen::VectorXd landmark){
-    Eigen::MatrixXd Hs(2,2);
+    Eigen::MatrixXd Hs(2,3);
 
     auto cos_p = std::cos(landmark(1));
     auto sin_p = std::sin(landmark(1));
 
-    Hs <<   cos_p, -sin_p, 0,
-            0,  0, -1;
+    Hs <<   cos_p, sin_p, 0,
+            0,     0,     -1;
 
     return Hs;
 }
