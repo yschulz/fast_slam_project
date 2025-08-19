@@ -19,6 +19,7 @@ set(srcs
   "src/ParticleSet.cpp"
   "src/PathList.cpp"
   "src/MapTree.cpp"
+  "src/MapTreeIterator.cpp"
   "src/Helper.cpp"
 )
 
@@ -94,6 +95,12 @@ if(BUILD_TESTING)
   ament_add_gtest(particle_test test/particle_test.cpp)
   target_link_libraries(particle_test ${PROJECT_NAME} Eigen3::Eigen)
   target_include_directories(particle_test PUBLIC
+    "include"
+  )
+
+  ament_add_gtest(map_tree_iterator_test test/map_tree_iterator_test.cpp)
+  target_link_libraries(map_tree_iterator_test ${PROJECT_NAME} Eigen3::Eigen)
+  target_include_directories(map_tree_iterator_test PUBLIC
     "include"
   )
 
