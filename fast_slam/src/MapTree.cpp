@@ -1,12 +1,11 @@
 #include "fast_slam/MapTree.hpp"
+#include "fast_slam/MapTreeIterator.hpp"
 
 namespace fastslam{
 
-// can be used to check if number of Landmarks does not grow without bound
 unsigned int Landmark::global_landmark_counter;
 
-// can be used to check if number of MapNodes does not grow without bound
-unsigned int MapNode::global_map_node_counter; 
+uint32_t MapNode::global_map_node_counter; 
 int MapTree::map_tree_identifier_counter = 1;
 
 MapTree::MapTree():
@@ -25,7 +24,6 @@ MapTree::MapTree(const MapTree &map_to_copy){
     map_tree_identifier_counter++;
     map_root_ = map_to_copy.map_root_;
 
-    // we add new reference for a MapNode and have to increment its reference counter
     if (map_to_copy.map_root_ != nullptr){
         map_to_copy.map_root_->referenced++;
     }
@@ -42,8 +40,7 @@ void MapTree::removeReferenceToSubTree(std::shared_ptr<MapNode> &sub_tree_root){
 }
 
 void MapTree::insertLandmark(std::shared_ptr<Landmark> &new_landmark){
-    // first landmark
-    if (new_landmark->landmark_identifier == 1){ // handle special case
+    if (new_landmark->landmark_identifier == 1){
         int need_n_layers = 1;
         if (need_n_layers > n_layers_){
             creatNewLayers(need_n_layers);
@@ -58,29 +55,15 @@ void MapTree::insertLandmark(std::shared_ptr<Landmark> &new_landmark){
         }
     }
 
-    // get pointer to make unique pointer iterable
     std::shared_ptr<MapNode> *curr = &map_root_;
     size_t i2 = ((*curr)->key_value) / 2;
 
-    /*
-    We are filling the tree in the following structure:
-                        O(2)                 Level 2
-                    /       \
-                O(1)          O(3)          Level 1
-                /     \       /     \
-            O(0)    O(0)   O(0)   O(0)
-            LM(1)    LM(2) LM(3)   LM(4)
-    */
 
     for(size_t i = n_layers_; i>1; i--){
 
-        // if identifir is greater than current node go right
         if(new_landmark->landmark_identifier > (*curr)->key_value){
-            // if the right node is not null use right as curr
             if((*curr)->right != nullptr)
                 curr = &((*curr)->right);
-            
-            // else create a new node
             else{
                 (*curr)->right = std::make_shared<MapNode>();
                 (*curr)->right->key_value = (*curr)->key_value + i2;
@@ -93,12 +76,9 @@ void MapTree::insertLandmark(std::shared_ptr<Landmark> &new_landmark){
                 n_nodes_++;
             }
         }
-        // else go left
         else{
-            // same here. If not null go left
             if((*curr)->left != nullptr)
                 curr = &((*curr)->left);
-            // same here. If null, create new node
             else{
                 (*curr)->left = std::make_shared<MapNode>();
                 (*curr)->left->key_value = (*curr)->key_value - i2;
@@ -114,7 +94,6 @@ void MapTree::insertLandmark(std::shared_ptr<Landmark> &new_landmark){
         i2 = i2 / 2;
     }
 
-    // Now we are at the bottom, ready to add a new leaf
 
     std::shared_ptr<MapNode> new_leaf = std::make_shared<MapNode>();
     new_leaf->key_value = 0;
@@ -123,7 +102,6 @@ void MapTree::insertLandmark(std::shared_ptr<Landmark> &new_landmark){
     new_leaf->referenced = 1;
     new_leaf->landmark = new_landmark;
 
-    // again, if landmark is greater than current key value, go right
     if(new_landmark->landmark_identifier > (*curr)->key_value)
         (*curr)->right = std::move(new_leaf);
     else
@@ -143,11 +121,10 @@ void MapTree::creatNewLayers(int needed_n_layers){
         newmap_root_node->landmark = nullptr;
         newmap_root_node->referenced = 1;
 
-        // give new node ownership of old root 
+ 
         newmap_root_node->left = std::move(map_root_);
         n_nodes_++;
 
-        // move new node to root
         map_root_ = std::move(newmap_root_node);
     }
 
@@ -155,7 +132,7 @@ void MapTree::creatNewLayers(int needed_n_layers){
 }
 
 
-std::shared_ptr<MapNode> MapTree::extractLeafNodePointer(std::shared_ptr<MapNode> &current_ptr, uint32_t landmark_identifier){
+std::shared_ptr<MapNode> MapTree::extractLeafNodePointer(const std::shared_ptr<MapNode> &current_ptr, uint32_t landmark_identifier) const {
 
     if(current_ptr == nullptr){
         std::cout << "got a nullptr someting went wrong! \n";
@@ -165,11 +142,9 @@ std::shared_ptr<MapNode> MapTree::extractLeafNodePointer(std::shared_ptr<MapNode
     if(current_ptr->key_value == 0)
         return current_ptr;
 
-    // // go right
     if(landmark_identifier > current_ptr->key_value)
         return extractLeafNodePointer(current_ptr->right, landmark_identifier);
     
-    // // go left
     else
         return extractLeafNodePointer(current_ptr->left, landmark_identifier);
     
@@ -178,7 +153,6 @@ std::shared_ptr<MapNode> MapTree::extractLeafNodePointer(std::shared_ptr<MapNode
 }
 
 void MapTree::correctLandmark(std::shared_ptr<Landmark> &new_landmark_data){
-    // reassignment should release the original pointer after assignment
     map_root_ = makeNewPath(new_landmark_data, map_root_);
 }
 
@@ -190,21 +164,17 @@ std::shared_ptr<MapNode> MapTree::makeNewPath(std::shared_ptr<Landmark> &new_lan
         new_map_node->key_value = starting_node->key_value;
 
         if(new_landmark_data->landmark_identifier > starting_node->key_value){
-            // link entire left branch to original subtree since landmark is on the right
             new_map_node->left = starting_node->left;
             if(new_map_node->left != nullptr)
                 new_map_node->left->referenced++;
 
-            // now traverse until leaf nodes
             new_map_node->right = makeNewPath(new_landmark_data, starting_node->right);
         }
         else if(new_landmark_data->landmark_identifier <= starting_node->key_value){
-            // link entire right branch to original subtree since landmark is on the left
             new_map_node->right = starting_node->right;
             if(new_map_node->right != nullptr)
                 new_map_node->right->referenced++;
 
-            // now traverse until leaf nodes
             new_map_node->left = makeNewPath(new_landmark_data, starting_node->left);   
         }
         else{
@@ -212,7 +182,6 @@ std::shared_ptr<MapNode> MapTree::makeNewPath(std::shared_ptr<Landmark> &new_lan
         }
         return new_map_node;
     }
-    // now we reached the leaf nodes
     else{
         std::shared_ptr<MapNode> new_leaf_node = std::make_shared<MapNode>();
         new_leaf_node->key_value = 0;
@@ -239,6 +208,91 @@ void MapTree::printAllLandmarkPositions(std::ostream &out){
         }
     }
 
+}
+
+/* Creates range object with default inclusive boundaries for for-loop iteration */
+MapTreeRange MapTree::range(uint32_t start_id, uint32_t end_id) const {
+    return MapTreeRange(this, start_id, end_id);
+}
+
+/* Creates range object including both start and end landmark IDs */
+MapTreeRange MapTree::rangeInclusive(uint32_t start_id, uint32_t end_id) const {
+    return MapTreeRange(this, start_id, end_id, 
+                       MapTreeRangeIterator::BoundaryType::INCLUSIVE, 
+                       MapTreeRangeIterator::BoundaryType::INCLUSIVE);
+}
+
+/* Creates range object excluding both start and end landmark IDs */
+MapTreeRange MapTree::rangeExclusive(uint32_t start_id, uint32_t end_id) const {
+    return MapTreeRange(this, start_id, end_id, 
+                       MapTreeRangeIterator::BoundaryType::EXCLUSIVE, 
+                       MapTreeRangeIterator::BoundaryType::EXCLUSIVE);
+}
+
+/* Creates range object with custom boundary inclusion for each end */
+MapTreeRange MapTree::rangeMixed(uint32_t start_id, uint32_t end_id, bool start_inclusive, bool end_inclusive) const {
+    return MapTreeRange(this, start_id, end_id, 
+                       start_inclusive ? MapTreeRangeIterator::BoundaryType::INCLUSIVE : MapTreeRangeIterator::BoundaryType::EXCLUSIVE,
+                       end_inclusive ? MapTreeRangeIterator::BoundaryType::INCLUSIVE : MapTreeRangeIterator::BoundaryType::EXCLUSIVE);
+}
+
+/* Creates optimized iterator for accessing exactly one landmark */
+OptimizedRangeIterator MapTree::singleElement(uint32_t landmark_id) const {
+    return OptimizedRangeIterator(this, landmark_id, landmark_id, OptimizedRangeIterator::OptimizationHint::SINGLE_ELEMENT);
+}
+
+/* Creates cached iterator optimized for small ranges with fast access */
+OptimizedRangeIterator MapTree::smallRange(uint32_t start_id, uint32_t end_id) const {
+    return OptimizedRangeIterator(this, start_id, end_id, OptimizedRangeIterator::OptimizationHint::SMALL_RANGE);
+}
+
+/* Creates end iterator for optimized range comparisons */
+OptimizedRangeIterator MapTree::optimizedEnd() const {
+    return OptimizedRangeIterator();
+}
+
+/* Returns vector of all valid landmarks within specified ID range */
+std::vector<std::shared_ptr<Landmark>> MapTree::getLandmarksInRange(uint32_t start_id, uint32_t end_id) const {
+    std::vector<std::shared_ptr<Landmark>> landmarks;
+    for (uint32_t id = start_id; id <= end_id; ++id) {
+        try {
+            auto landmark = extractLandmarkNodePointer(id);
+            if (landmark) {
+                landmarks.push_back(landmark);
+            }
+        } catch (...) {
+        }
+    }
+    return landmarks;
+}
+
+/* Counts number of valid landmarks within specified ID range */
+size_t MapTree::countLandmarksInRange(uint32_t start_id, uint32_t end_id) const {
+    size_t count = 0;
+    for (uint32_t id = start_id; id <= end_id; ++id) {
+        try {
+            auto landmark = extractLandmarkNodePointer(id);
+            if (landmark) {
+                count++;
+            }
+        } catch (...) {
+        }
+    }
+    return count;
+}
+
+/* Checks if any valid landmarks exist within specified ID range */
+bool MapTree::hasLandmarkInRange(uint32_t start_id, uint32_t end_id) const {
+    for (uint32_t id = start_id; id <= end_id; ++id) {
+        try {
+            auto landmark = extractLandmarkNodePointer(id);
+            if (landmark) {
+                return true;
+            }
+        } catch (...) {
+        }
+    }
+    return false;
 }
 
 
